@@ -12,13 +12,19 @@ const SESSION_CONF = {
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false },
-  store: memoryStore
+  store: memoryStore,
 };
 const port = parseInt(process.env.PORT, 10) || 3000;
 const production = process.env.PRODUCTION || false;
 
 const ngrok = require("ngrok");
-import { connect, connectionResponse } from "./controllers/controllers";
+import {
+  connect,
+  connectionResponse,
+  connectMobile,
+  parseConnectionResponse,
+  connectionResponseMobile
+} from "./controllers/controllers";
 
 let endpoint = "";
 
@@ -37,11 +43,35 @@ app.prepare().then(() => {
     return connect(req, res);
   });
 
+  server.get("/connectionRequestMobile", (req, res) => {
+    console.log("server.js :: heye connectionRequestMobile called");
+    req.endpoint = endpoint;
+    return connectMobile(req, res);
+  });
 
-
-  server.post("/connectionResponse", (req, res) => {
+  server.post("/connectionResponse", async (req, res) => {
     console.log("server.js :: heye connectionResponse called");
     return connectionResponse(req, res);
+  });
+
+  server.post("/parseConnectionResponse", async (req, res) => {
+    console.log("server.js :: parseConnectionResponse called");
+    return parseConnectionResponse(req, res);
+  });
+
+  server.post("/connectionResponseMobile/:ssiSessionId",async (req, res) => {
+    console.log("server.js :: parseConnectionResponseMobile called");
+    req.query.ssiSessionId = req.params.ssiSessionId;
+    return connectionResponseMobile(req, res);
+  });
+
+
+
+  server.get("/connectionResponseMobile/:ssiSessionId",async (req, res) => {
+    console.log("server.js GET:: parseConnectionResponseMobile called");
+    let keycloak = process.env.KEYCLOAK_MOBILE;
+    console.log(`will redirect to ${keycloak}`);
+    res.redirect(`${keycloak}?ssiSessionId=${req.params.ssiSessionId}`);
   });
 
 
@@ -49,10 +79,10 @@ app.prepare().then(() => {
     return handle(req, res);
   });
 
-  server.listen(port, err => {
+  server.listen(port, (err) => {
     if (err) throw err;
-    if(!production){
-      ngrok.connect(port).then(ngrokUrl => {
+    if (!production) {
+      ngrok.connect(port).then((ngrokUrl) => {
         endpoint = ngrokUrl;
         console.log(`running, open at ${endpoint}`);
       });
